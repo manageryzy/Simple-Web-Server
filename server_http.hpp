@@ -7,6 +7,7 @@
 #include <functional>
 #include <iostream>
 #include <sstream>
+#include <iomanip>
 
 #ifdef USE_STANDALONE_ASIO
 #include <asio.hpp>
@@ -875,19 +876,25 @@ namespace SimpleWeb {
 
 				if(noBody)
 				{
-					*this << "HTTP/1.1 " << status << " " << reason << "\r\n\r\n";
+					*this << "HTTP/1.1 " << status << " " << reason << "\r\n";
 				}
 				else if (content == "")
 				{
-					*this << "HTTP/1.1 " << status << " " << reason << "\r\nContent-Length: " << reason.length() << "\r\n\r\n" << reason;
+					*this << "HTTP/1.1 " << status << " " << reason << "\r\nContent-Length: " << reason.length() << "\r\n" << reason;
 				}
 				else
 				{
-					*this << "HTTP/1.1 " << status << " " << reason << "\r\nContent-Length: " << content.length() << "\r\n\r\n" << content;
+					*this << "HTTP/1.1 " << status << " " << reason << "\r\nContent-Length: " << content.length() << "\r\n" << content;
 				}
+
+				for (auto header : headers)
+				{
+					*this << header.first << ": " << header.second << "\r\n";
+				}
+				*this << "\r\n";
 			}
 
-			void setMIME(const std::string & ext)
+			void set_MIME(const std::string & ext)
 			{
 				auto it = http_mime_types.find(ext);
 				if(it != http_mime_types.end())
@@ -896,7 +903,45 @@ namespace SimpleWeb {
 				}
 			}
 
-			void sendHeaders()
+			void set_cookie(const std::string & name,const std::string & value, std::time_t Expires = 0,int Max_Age = 0,std::string domain = "",std::string path = "",bool secure = false,bool HttpOnly = false)
+			{
+				std::stringstream cookie;
+				cookie << name << "=" << value;
+				
+				if(Expires)
+				{
+					cookie << "; Expires=" << std::put_time(std::gmtime(&Expires), "%a, %d %b %Y %H:%M:%S GMT");
+				}
+
+				if(Max_Age)
+				{
+					cookie << "; Max-Age=" << Max_Age;
+				}
+
+				if(domain!="")
+				{
+					cookie << "; Domain=" << domain;
+				}
+
+				if(path!="")
+				{
+					cookie << "; Path=" << path;
+				}
+
+				if(secure)
+				{
+					cookie << "; Secure";
+				}
+
+				if(HttpOnly)
+				{
+					cookie << "; HttpOnly";
+				}
+
+				headers.emplace("Set-Cookie", cookie.str());
+			}
+
+			void send_headers()
 			{
 				*this << "HTTP/1.1 " << status << " " << http_status_codes[status] << "\r\n";
 				for (auto header : headers)
