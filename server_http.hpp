@@ -1013,6 +1013,27 @@ namespace SimpleWeb {
                 return result;
             }
 
+			std::unordered_multimap<std::string, std::string, CaseInsensitiveHash, CaseInsensitiveEqual> parse_cookies()
+            {
+				std::unordered_multimap<std::string, std::string, CaseInsensitiveHash, CaseInsensitiveEqual> result;
+				auto it = this->header.find("Cookie");
+				if(it==this->header.end())	return result;
+
+				auto cookie = it->second;
+
+				static regex::regex pattern("([\\w+%]+)=?([^;]*)");
+				int submatches[] = { 1, 2 };
+				auto it_begin = regex::sregex_token_iterator(cookie.begin(), cookie.end(), pattern, submatches);
+				auto it_end = regex::sregex_token_iterator();
+				for (auto it = it_begin; it != it_end; ++it) {
+					auto submatch1 = it->str();
+					auto submatch2 = (++it)->str();
+					result.emplace(submatch1, submatch2);
+				}
+
+				return result;
+            }
+
         private:
             Request(const socket_type &socket): content(streambuf) {
                 try {
