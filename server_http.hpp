@@ -858,8 +858,8 @@ namespace SimpleWeb {
 
 			void response(int status)
 			{
-				if (http_status_codes.find(status == http_status_codes.end()))
-					throw std::runtime_error("error status code: " + status);
+				if (http_status_codes.find(status) == http_status_codes.end())
+					throw std::runtime_error("error status code: " + std::to_string(status));
 				this->status = status;
 			}
 
@@ -1029,6 +1029,61 @@ namespace SimpleWeb {
 					auto submatch1 = it->str();
 					auto submatch2 = (++it)->str();
 					result.emplace(submatch1, submatch2);
+				}
+
+				return result;
+            }
+
+			std::unordered_multimap<std::string, std::string, CaseInsensitiveHash, CaseInsensitiveEqual> parse_post()
+            {
+				std::unordered_multimap<std::string, std::string, CaseInsensitiveHash, CaseInsensitiveEqual> result;
+
+				auto it = this->header.find("Content-Type");
+				if (it == this->header.end())	return result;
+
+				std::string type = it->second;
+				if(type == "application/x-www-form-urlencoded")
+				{
+					std::string cont = content.string();
+					static regex::regex pattern("([\\w+%]+)=?([^&]*)");
+					int submatches[] = { 1, 2 };
+					auto it_begin = regex::sregex_token_iterator(cont.begin(), cont.end(), pattern, submatches);
+					auto it_end = regex::sregex_token_iterator();
+					for (auto it = it_begin; it != it_end; ++it) {
+						auto submatch1 = it->str();
+						auto submatch2 = url_decode((++it)->str());
+						result.emplace(submatch1, submatch2);
+					}
+				}
+				else if(type == "application/json")
+				{
+					throw std::runtime_error("could not parse json data");
+				}
+				else if(type == "application/xml")
+				{
+					throw std::runtime_error("could not parse xml data");
+				}
+				else if(type.find("multipart/form-data")!=std::string::npos)
+				{
+					auto st = type.find("boundary=");
+					auto boundary = type.substr(st+9);
+					std::vector<std::string> conts(std::istream_iterator<std::string>(content), {});
+					for(auto it =conts.begin();it < conts.end() ; ++it)
+					{
+						while(it->find("name") == std::string::npos)
+						{
+							++it;
+							if (it == conts.end())
+								return result;
+						}
+						auto name = it->substr(6,it->length() - 7);
+						++it;
+						result.emplace(name, *it);
+					}
+				}
+				else
+				{
+					throw std::runtime_error("unknown type");
 				}
 
 				return result;
